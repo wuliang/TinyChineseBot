@@ -1,0 +1,62 @@
+////////////////////////
+一个关键的SQL语句
+－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－
+"SELECT 
+next_expr.token%(last_token)d_id, next_expr.id FROM 
+expr, expr AS next_expr 
+
+
+WHERE expr.id = :expr_id AND 
+      next_expr.token%(last_token)d_id = 
+       (SELECT token_id FROM %(table)s WHERE expr_id = :expr_id LIMIT 1 OFFSET 
+          ifnull(random()%%(SELECT count(*) FROM %(table)s WHERE expr_id = :expr_id), 0)) AND %(subquery)s" \
+                % {"last_token": self._order - 1,
+                   "subquery": next_query,
+                   "table": _NEXT_TOKEN_TABLE}
+\\\\\\\\\解释///////////
+(1)2个%%，是因为会被python消耗一个。
+(2)ifnull(X, 0) 表示如果X为NULL，返回0，否则返回X的值
+(3) :expr_id这个字符串代表sql中的变量，会在Sql3对象执行前被替换为值。（类似于ruby的表示）
+(4) SELECT count(*) 表示对检索结果计数。
+(5) ifnull(random()%%(SELECT count(*) FROM %(table)s WHERE expr_id = :expr_id), 0) 只是产生一个OFFSET要用的值。
+在所有满足条件的集合中。这点redis相对而言就比较聪明（支持随机选取）。
+(6) (SELECT token_id FROM %(table)s WHERE expr_id = :expr_id LIMIT 1 OFFSET XXXX）
+所有的XXX只是为实现随机选取功能，而且要配合LIMIT 1和OFFSET。
+全句的意思就是在table中查找一个expr_id一致的，如果有多条记录满足，随机取一条，返回其token_id
+(7) AND %(subquery)s 表示其他的进一步细化操作。
+(8) 
+全句变为：
+"SELECT 
+next_expr.token%(last_token)d_id, next_expr.id FROM 
+expr, expr AS next_expr 
+WHERE expr.id = :expr_id AND 
+      next_expr.token%(last_token)d_id = “XYZ“ AND
+      AND %(subquery)s	
+其中XYZ表示在_NEXT_TOKEN_TABLE中取出来的某个token（要求expr_id一致）,
+前面的条件（expr.id = :expr_id）似乎没有必要？？？因为这个表格expr并没有被使用（没有被select）。
+
+
+(9)全句的意思是：先在NEXT_TOKEN_TABLE表中找到，本句子最有可能的NEXT_TOKEN（其实是随机的），
+然后根据在expr表中找到包含该TOKEN的句子（且要求该TOKEN在句子的最后）－－－ 例子如下：
+
+INFO:cobe:follow_chain NEXT --- INIT : 爱| |看书| |2 
+INFO:cobe:follow_chain NEXT ---   :  |看书| |2|  
+INFO:cobe:follow_chain NEXT --- 3 : 看书| |2| |3 
+INFO:cobe:follow_chain NEXT ---   :  |2| |3|  
+INFO:cobe:follow_chain NEXT --- 等 : 2| |3| |等 
+INFO:cobe:follow_chain NEXT ---   :  |3| |等|  
+INFO:cobe:follow_chain NEXT --- 许多 : 3| |等| |许多 
+INFO:cobe:follow_chain NEXT ---   :  |等| |许多|  
+INFO:cobe:follow_chain NEXT --- 书 : 等| |许多| |书 
+INFO:cobe:follow_chain NEXT ---   :  |许多| |书|  
+INFO:cobe:follow_chain NEXT --- 友 : 许多| |书| |友 
+INFO:cobe:follow_chain NEXT ---   :  |书| |友|  
+INFO:cobe:follow_chain NEXT --- 指出 : 书| |友| |指出 
+INFO:cobe:follow_chain NEXT ---   :  |友| |指出|  
+INFO:cobe:follow_chain NEXT --- 文章 : 友| |指出| |文章 
+INFO:cobe:follow_chain NEXT ---   :  |指出| |文章|  
+INFO:cobe:follow_chain NEXT --- 中的 : 指出| |文章| |中的 
+INFO:cobe:follow_chain NEXT ---   :  |文章| |中的|  
+INFO:cobe:follow_chain NEXT --- 错误 : 文章| |中的| |错误
+
+
