@@ -1,0 +1,41 @@
+* Introduce
+"TinyChineseBot" is Chinese chat bot based on Cobe
+
+* Requirements
+** Cobe (A Markov chain based text chatbot)
+[https://github.com/pteichman/cobe] by Peter Teichman
+
+* Usage
+** Chat with the Bot
+python study-chat.py
+
+** Feed to the Bot
+python study-feed.py <filename>
+The file should be UTF-8 encoded.
+
+* Develope
+** Debug
+Open print:
+logging.basicConfig(level=logging.DEBUG)
+
+** What is Cobe?
+It's core module named brain. I have comment it heavily in "brain-comment.py"
+Copyright remaind to Peter Teichman
+
+** Why always repeat?
+one reason: the brain has no enough content.
+The fundamental reason:  
+ + Cobe select a world randomly from "request"
+ + Cobe select a sentence randomly which contain the word.
+ + Cobe try to extent the sentence in two directions. (with its Markov DB)
+But if the Cobe select the setence same as "request"....
+
+** Why not include IRC or Jabber(XMPP) Client
+There is no active server having enough Chinese users.   
+
+
+** release
+- Fri Mar 23 19:54:49 CST 2012
+by wuliang [www.wuliang.cn at gmail.com]
+
+
